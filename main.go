@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type Asset struct {
@@ -15,42 +16,60 @@ type Asset struct {
 	Status    string  `json:"status"`
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Go Asset API is running!")
+var assets = []Asset{
+	{
+		ID:        1,
+		Name:      "Well A-01",
+		Type:      "Oil Well",
+		Latitude:  -2.1234,
+		Longitude: 133.5678,
+		Status:    "Active",
+	},
+	{
+		ID:        2,
+		Name:      "Well A-02",
+		Type:      "Gas Well",
+		Latitude:  -2.1567,
+		Longitude: 133.5890,
+		Status:    "Active",
+	},
 }
 
 func assetsHandler(w http.ResponseWriter, r *http.Request) {
-	assets := []Asset{
-		{
-			ID:        1,
-			Name:      "Well A-01",
-			Type:      "Oil Well",
-			Latitude:  -2.1234,
-			Longitude: 133.5678,
-			Status:    "Active",
-		},
-		{
-			ID:        2,
-			Name:      "Well A-02",
-			Type:      "Gas Well",
-			Latitude:  -2.1567,
-			Longitude: 133.5890,
-			Status:    "Active",
-		},
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.URL.Path == "/assets" {
+		json.NewEncoder(w).Encode(assets)
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(assets)
+	// /assets/1
+	idText := strings.TrimPrefix(r.URL.Path, "/assets/")
+	id, err := strconv.Atoi(idText)
+
+	if err != nil {
+		http.Error(w, `{"error":"Invalid asset ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	for _, asset := range assets {
+		if asset.ID == id {
+			json.NewEncoder(w).Encode(asset)
+			return
+		}
+	}
+
+	http.Error(w, `{"error":"Asset not found"}`, http.StatusNotFound)
 }
 
 func main() {
-	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/assets/", assetsHandler)
 	http.HandleFunc("/assets", assetsHandler)
 
-	fmt.Println("Server running on http://localhost:8080")
+	println("Go Asset API is running!")
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		fmt.Println(err)
+		println("Server error:", err.Error())
 	}
 }
